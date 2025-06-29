@@ -78,7 +78,73 @@ A complete podcast hosting solution with C# Azure Functions backend, Azure Blob 
    npm run serve
    ```
 
-## Deployment
+## Infrastructure as Code
+
+This project uses Azure Bicep templates for Infrastructure as Code deployment with **automatic Azure AD app registration creation**. Each environment (dev, staging, prod) gets its own dedicated app registration.
+
+### Prerequisites for Deployment
+
+1. **Azure CLI** installed and authenticated
+2. **PowerShell** (for app registration scripts)
+3. **Azure AD Permissions** - one of the following:
+   - `Application Administrator` role in Azure AD
+   - `Application.ReadWrite.All` permission in Microsoft Graph
+
+### Quick Deployment
+
+1. **Deploy to Dev Environment:**
+   ```bash
+   az deployment group create \
+     --resource-group rg-podcast-dev \
+     --template-file infrastructure/main.bicep \
+     --parameters infrastructure/parameters/dev.json
+   ```
+
+2. **Deploy to Production:**
+   ```bash
+   az deployment group create \
+     --resource-group rg-podcast-prod \
+     --template-file infrastructure/main.bicep \
+     --parameters infrastructure/parameters/prod.json
+   ```
+
+### What Gets Deployed
+
+- **Azure Function App** (backend API)
+- **Azure Static Web App** (frontend hosting)
+- **Azure Storage Account** (blob storage for podcasts)
+- **Application Insights** (monitoring)
+- **Azure AD App Registration** (authentication) - **Created Automatically!**
+
+### App Registration Features
+
+- ✅ **Automatic Creation**: App registrations are created during deployment
+- ✅ **Environment Isolation**: Separate apps for dev/staging/prod
+- ✅ **Dynamic Configuration**: Redirect URIs configured with actual deployed URLs
+- ✅ **Idempotent**: Safe to run multiple times
+- ✅ **No Manual Setup Required**: No need to manually create app registrations
+
+### Detailed Deployment Guide
+
+For complete deployment instructions, troubleshooting, and security considerations, see:
+📖 **[App Registration Deployment Guide](infrastructure/APP_REGISTRATION_DEPLOYMENT_GUIDE.md)**
+
+### Testing App Registration
+
+After deployment, verify your app registration was created:
+
+```powershell
+# Test app registration for dev environment
+.\infrastructure\scripts\test-app-registration.ps1 -Environment "dev"
+
+# Test app registration for production
+.\infrastructure\scripts\test-app-registration.ps1 -Environment "prod"
+```
+
+## Manual Deployment (Legacy)
+
+<details>
+<summary>Click to expand manual deployment instructions</summary>
 
 ### Backend Deployment
 
@@ -100,3 +166,5 @@ A complete podcast hosting solution with C# Azure Functions backend, Azure Blob 
    ```
 
 2. Deploy to Azure Static Web Apps or your preferred hosting service.
+
+</details>

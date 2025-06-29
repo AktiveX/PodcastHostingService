@@ -10,12 +10,6 @@
     },
     "baseName": {
       "value": "podcast"
-    },
-    "tenantId": {
-      "value": "YOUR_TENANT_ID"
-    },
-    "clientId": {
-      "value": "YOUR_CLIENT_ID"
     }
   }
 }

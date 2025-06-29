@@ -7,11 +7,6 @@ param location string = resourceGroup().location
 @description('The base name for all resources')
 param baseName string = 'podcast'
 
-@description('The AAD tenant ID for authentication')
-param tenantId string
-
-@description('The AAD client ID for authentication')
-param clientId string
 
 // Generate unique names based on environment and base name
 var uniqueSuffix = uniqueString(resourceGroup().id, environment)
@@ -64,7 +59,7 @@ module functionApp 'modules/function-app.bicep' = {
   }
 }
 
-// Deploy Static Web App
+// Deploy Static Web App (without auth config initially)
 module staticWebApp 'modules/static-web-app.bicep' = {
   name: 'staticWebApp'
   params: {
@@ -72,9 +67,39 @@ module staticWebApp 'modules/static-web-app.bicep' = {
     location: location
     environment: environment
     functionAppUrl: functionApp.outputs.functionAppUrl
-    tenantId: tenantId
-    clientId: clientId
+    tenantId: '' // Will be updated after app registration is created
+    clientId: '' // Will be updated after app registration is created
   }
+}
+
+// Create App Registration with the actual Static Web App URL
+module appRegistration 'modules/app-registration-setup.bicep' = {
+  name: 'appRegistration'
+  params: {
+    appName: baseName
+    environment: environment
+    location: location
+    staticWebAppUrl: staticWebApp.outputs.url
+  }
+  dependsOn: [
+    staticWebApp
+  ]
+}
+
+// Update Static Web App with the created app registration details
+module staticWebAppUpdate 'modules/static-web-app.bicep' = {
+  name: 'staticWebAppUpdate'
+  params: {
+    name: staticWebAppName
+    location: location
+    environment: environment
+    functionAppUrl: functionApp.outputs.functionAppUrl
+    tenantId: appRegistration.outputs.tenantId
+    clientId: appRegistration.outputs.appId
+  }
+  dependsOn: [
+    appRegistration
+  ]
 }
 
 // Outputs
@@ -83,3 +108,6 @@ output functionAppName string = functionApp.outputs.name
 output staticWebAppName string = staticWebApp.outputs.name
 output functionAppUrl string = functionApp.outputs.functionAppUrl
 output staticWebAppUrl string = staticWebApp.outputs.url
+output appRegistrationId string = appRegistration.outputs.appId
+output appRegistrationTenantId string = appRegistration.outputs.tenantId
+output appRegistrationDisplayName string = appRegistration.outputs.displayName
