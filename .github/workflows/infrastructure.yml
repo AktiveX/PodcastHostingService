@@ -46,9 +46,18 @@ jobs:
           fi
           
           # Set resource group based on environment
-          if [ "${{ steps.env.outputs.environment }}" == "prod" ]; then
+          ENV_NAME=$(echo "$GITHUB_OUTPUT" | grep "environment=" | cut -d'=' -f2 | tail -1)
+          if [ -z "$ENV_NAME" ]; then
+            case "${{ github.ref }}" in
+              refs/heads/main) ENV_NAME="prod" ;;
+              refs/heads/staging) ENV_NAME="staging" ;;
+              *) ENV_NAME="dev" ;;
+            esac
+          fi
+          
+          if [ "$ENV_NAME" == "prod" ]; then
             echo "resource-group=rg-podcast-prod" >> $GITHUB_OUTPUT
-          elif [ "${{ steps.env.outputs.environment }}" == "staging" ]; then
+          elif [ "$ENV_NAME" == "staging" ]; then
             echo "resource-group=rg-podcast-staging" >> $GITHUB_OUTPUT
           else
             echo "resource-group=rg-podcast-dev" >> $GITHUB_OUTPUT
