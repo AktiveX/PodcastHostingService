@@ -1,0 +1,124 @@
+name: Backend Deployment
+
+on:
+  push:
+    branches: [dev, staging, main]
+    paths: ['backend/**']
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+jobs:
+  determine-environment:
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.env.outputs.environment }}
+      resource-group: ${{ steps.env.outputs.resource-group }}
+    steps:
+      - name: Determine environment
+        id: env
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+          else
+            case "${{ github.ref }}" in
+              refs/heads/main)
+                echo "environment=prod" >> $GITHUB_OUTPUT
+                ;;
+              refs/heads/staging)
+                echo "environment=staging" >> $GITHUB_OUTPUT
+                ;;
+              refs/heads/dev)
+                echo "environment=dev" >> $GITHUB_OUTPUT
+                ;;
+              *)
+                echo "environment=dev" >> $GITHUB_OUTPUT
+                ;;
+            esac
+          fi
+          
+          # Set resource group based on environment
+          if [ "${{ steps.env.outputs.environment }}" == "prod" ]; then
+            echo "resource-group=rg-podcast-prod" >> $GITHUB_OUTPUT
+          elif [ "${{ steps.env.outputs.environment }}" == "staging" ]; then
+            echo "resource-group=rg-podcast-staging" >> $GITHUB_OUTPUT
+          else
+            echo "resource-group=rg-podcast-dev" >> $GITHUB_OUTPUT
+          fi
+
+  build-and-deploy:
+    needs: determine-environment
+    runs-on: ubuntu-latest
+    environment: ${{ needs.determine-environment.outputs.environment }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '6.0.x'
+
+      - name: Restore dependencies
+        run: |
+          cd backend
+          dotnet restore
+
+      - name: Build project
+        run: |
+          cd backend
+          dotnet build --configuration Release --no-restore
+
+      - name: Run tests
+        run: |
+          cd backend
+          dotnet test --configuration Release --no-build --verbosity normal
+
+      - name: Publish project
+        run: |
+          cd backend
+          dotnet publish --configuration Release --output ./output --no-build
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Get Function App name
+        id: get-function-app
+        run: |
+          FUNCTION_APP_NAME=$(az functionapp list \
+            --resource-group ${{ needs.determine-environment.outputs.resource-group }} \
+            --query "[0].name" \
+            --output tsv)
+          echo "function-app-name=$FUNCTION_APP_NAME" >> $GITHUB_OUTPUT
+
+      - name: Deploy to Azure Functions
+        uses: Azure/functions-action@v1
+        with:
+          app-name: ${{ steps.get-function-app.outputs.function-app-name }}
+          package: backend/output
+          publish-profile: ${{ secrets[format('AZURE_FUNCTIONAPP_PUBLISH_PROFILE_{0}', upper(needs.determine-environment.outputs.environment))] }}
+
+      - name: Restart Function App
+        run: |
+          az functionapp restart \
+            --name ${{ steps.get-function-app.outputs.function-app-name }} \
+            --resource-group ${{ needs.determine-environment.outputs.resource-group }}
+
+      - name: Health Check
+        run: |
+          sleep 30
+          FUNCTION_APP_URL="https://${{ steps.get-function-app.outputs.function-app-name }}.azurewebsites.net"
+          echo "Checking health of: $FUNCTION_APP_URL"
+          
+          # Simple health check - adjust endpoint as needed
+          curl -f "$FUNCTION_APP_URL" || echo "Health check endpoint not available"

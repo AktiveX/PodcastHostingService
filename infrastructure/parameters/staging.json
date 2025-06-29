@@ -1,0 +1,21 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environment": {
+      "value": "staging"
+    },
+    "location": {
+      "value": "East US"
+    },
+    "baseName": {
+      "value": "podcast"
+    },
+    "tenantId": {
+      "value": "YOUR_TENANT_ID"
+    },
+    "clientId": {
+      "value": "YOUR_CLIENT_ID"
+    }
+  }
+}

@@ -1,0 +1,323 @@
+name: Full Deployment Pipeline
+
+on:
+  push:
+    branches: [dev, staging, main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+      deploy_infrastructure:
+        description: 'Deploy infrastructure'
+        required: true
+        default: true
+        type: boolean
+      deploy_backend:
+        description: 'Deploy backend'
+        required: true
+        default: true
+        type: boolean
+      deploy_frontend:
+        description: 'Deploy frontend'
+        required: true
+        default: true
+        type: boolean
+
+jobs:
+  determine-environment:
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.env.outputs.environment }}
+      resource-group: ${{ steps.env.outputs.resource-group }}
+      deploy-infrastructure: ${{ steps.changes.outputs.infrastructure }}
+      deploy-backend: ${{ steps.changes.outputs.backend }}
+      deploy-frontend: ${{ steps.changes.outputs.frontend }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Determine environment
+        id: env
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+          else
+            case "${{ github.ref }}" in
+              refs/heads/main)
+                echo "environment=prod" >> $GITHUB_OUTPUT
+                ;;
+              refs/heads/staging)
+                echo "environment=staging" >> $GITHUB_OUTPUT
+                ;;
+              refs/heads/dev)
+                echo "environment=dev" >> $GITHUB_OUTPUT
+                ;;
+              *)
+                echo "environment=dev" >> $GITHUB_OUTPUT
+                ;;
+            esac
+          fi
+          
+          # Set resource group based on environment
+          if [ "${{ steps.env.outputs.environment }}" == "prod" ]; then
+            echo "resource-group=rg-podcast-prod" >> $GITHUB_OUTPUT
+          elif [ "${{ steps.env.outputs.environment }}" == "staging" ]; then
+            echo "resource-group=rg-podcast-staging" >> $GITHUB_OUTPUT
+          else
+            echo "resource-group=rg-podcast-dev" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "infrastructure=${{ github.event.inputs.deploy_infrastructure }}" >> $GITHUB_OUTPUT
+            echo "backend=${{ github.event.inputs.deploy_backend }}" >> $GITHUB_OUTPUT
+            echo "frontend=${{ github.event.inputs.deploy_frontend }}" >> $GITHUB_OUTPUT
+          else
+            # Check for changes in the last commit
+            if git diff --name-only HEAD~1 HEAD | grep -q "^infrastructure/"; then
+              echo "infrastructure=true" >> $GITHUB_OUTPUT
+            else
+              echo "infrastructure=false" >> $GITHUB_OUTPUT
+            fi
+            
+            if git diff --name-only HEAD~1 HEAD | grep -q "^backend/"; then
+              echo "backend=true" >> $GITHUB_OUTPUT
+            else
+              echo "backend=false" >> $GITHUB_OUTPUT
+            fi
+            
+            if git diff --name-only HEAD~1 HEAD | grep -q "^frontend/"; then
+              echo "frontend=true" >> $GITHUB_OUTPUT
+            else
+              echo "frontend=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+  deploy-infrastructure:
+    needs: determine-environment
+    if: needs.determine-environment.outputs.deploy-infrastructure == 'true'
+    runs-on: ubuntu-latest
+    environment: ${{ needs.determine-environment.outputs.environment }}
+    outputs:
+      function-app-name: ${{ steps.deployment.outputs.function-app-name }}
+      static-web-app-name: ${{ steps.deployment.outputs.static-web-app-name }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Create Resource Group
+        run: |
+          az group create \
+            --name ${{ needs.determine-environment.outputs.resource-group }} \
+            --location "East US" \
+            --tags Environment=${{ needs.determine-environment.outputs.environment }} Project=PodcastHostingService
+
+      - name: Deploy Bicep Template
+        uses: azure/arm-deploy@v1
+        with:
+          scope: resourcegroup
+          resourceGroupName: ${{ needs.determine-environment.outputs.resource-group }}
+          template: infrastructure/main.bicep
+          parameters: infrastructure/parameters/${{ needs.determine-environment.outputs.environment }}.json
+          deploymentMode: Incremental
+          deploymentName: infrastructure-${{ github.run_number }}
+
+      - name: Get deployment outputs
+        id: deployment
+        run: |
+          DEPLOYMENT_OUTPUTS=$(az deployment group show \
+            --resource-group ${{ needs.determine-environment.outputs.resource-group }} \
+            --name infrastructure-${{ github.run_number }} \
+            --query properties.outputs \
+            --output json)
+          
+          FUNCTION_APP_NAME=$(echo $DEPLOYMENT_OUTPUTS | jq -r '.functionAppName.value')
+          STATIC_WEB_APP_NAME=$(echo $DEPLOYMENT_OUTPUTS | jq -r '.staticWebAppName.value')
+          
+          echo "function-app-name=$FUNCTION_APP_NAME" >> $GITHUB_OUTPUT
+          echo "static-web-app-name=$STATIC_WEB_APP_NAME" >> $GITHUB_OUTPUT
+          
+          echo "Infrastructure deployed successfully:"
+          echo "Function App: $FUNCTION_APP_NAME"
+          echo "Static Web App: $STATIC_WEB_APP_NAME"
+          echo "Function App URL: $(echo $DEPLOYMENT_OUTPUTS | jq -r '.functionAppUrl.value')"
+          echo "Static Web App URL: $(echo $DEPLOYMENT_OUTPUTS | jq -r '.staticWebAppUrl.value')"
+
+  deploy-backend:
+    needs: [determine-environment, deploy-infrastructure]
+    if: |
+      always() && 
+      needs.determine-environment.outputs.deploy-backend == 'true' &&
+      (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped')
+    runs-on: ubuntu-latest
+    environment: ${{ needs.determine-environment.outputs.environment }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '6.0.x'
+
+      - name: Restore dependencies
+        run: |
+          cd backend
+          dotnet restore
+
+      - name: Build project
+        run: |
+          cd backend
+          dotnet build --configuration Release --no-restore
+
+      - name: Run tests
+        run: |
+          cd backend
+          dotnet test --configuration Release --no-build --verbosity normal
+
+      - name: Publish project
+        run: |
+          cd backend
+          dotnet publish --configuration Release --output ./output --no-build
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Get Function App name
+        id: get-function-app
+        run: |
+          if [ "${{ needs.deploy-infrastructure.outputs.function-app-name }}" != "" ]; then
+            echo "function-app-name=${{ needs.deploy-infrastructure.outputs.function-app-name }}" >> $GITHUB_OUTPUT
+          else
+            FUNCTION_APP_NAME=$(az functionapp list \
+              --resource-group ${{ needs.determine-environment.outputs.resource-group }} \
+              --query "[0].name" \
+              --output tsv)
+            echo "function-app-name=$FUNCTION_APP_NAME" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Deploy to Azure Functions
+        uses: Azure/functions-action@v1
+        with:
+          app-name: ${{ steps.get-function-app.outputs.function-app-name }}
+          package: backend/output
+          publish-profile: ${{ secrets[format('AZURE_FUNCTIONAPP_PUBLISH_PROFILE_{0}', upper(needs.determine-environment.outputs.environment))] }}
+
+  deploy-frontend:
+    needs: [determine-environment, deploy-infrastructure, deploy-backend]
+    if: |
+      always() && 
+      needs.determine-environment.outputs.deploy-frontend == 'true' &&
+      (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped') &&
+      (needs.deploy-backend.result == 'success' || needs.deploy-backend.result == 'skipped')
+    runs-on: ubuntu-latest
+    environment: ${{ needs.determine-environment.outputs.environment }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Get Function App URL
+        id: get-function-app
+        run: |
+          if [ "${{ needs.deploy-infrastructure.outputs.function-app-name }}" != "" ]; then
+            FUNCTION_APP_NAME=${{ needs.deploy-infrastructure.outputs.function-app-name }}
+          else
+            FUNCTION_APP_NAME=$(az functionapp list \
+              --resource-group ${{ needs.determine-environment.outputs.resource-group }} \
+              --query "[0].name" \
+              --output tsv)
+          fi
+          FUNCTION_APP_URL="https://${FUNCTION_APP_NAME}.azurewebsites.net/api"
+          echo "function-app-url=$FUNCTION_APP_URL" >> $GITHUB_OUTPUT
+
+      - name: Get Static Web App deployment token
+        id: get-swa-token
+        run: |
+          if [ "${{ needs.deploy-infrastructure.outputs.static-web-app-name }}" != "" ]; then
+            SWA_NAME=${{ needs.deploy-infrastructure.outputs.static-web-app-name }}
+          else
+            SWA_NAME=$(az staticwebapp list \
+              --resource-group ${{ needs.determine-environment.outputs.resource-group }} \
+              --query "[0].name" \
+              --output tsv)
+          fi
+          SWA_TOKEN=$(az staticwebapp secrets list \
+            --name $SWA_NAME \
+            --resource-group ${{ needs.determine-environment.outputs.resource-group }} \
+            --query "properties.apiKey" \
+            --output tsv)
+          echo "swa-token=$SWA_TOKEN" >> $GITHUB_OUTPUT
+
+      - name: Create environment file
+        run: |
+          cd frontend
+          cat > .env << EOF
+          VUE_APP_API_URL=${{ steps.get-function-app.outputs.function-app-url }}
+          VUE_APP_AUTH_CLIENT_ID=${{ vars.AAD_CLIENT_ID }}
+          VUE_APP_AUTH_AUTHORITY=https://login.microsoftonline.com/${{ vars.AAD_TENANT_ID }}
+          VUE_APP_ENVIRONMENT=${{ needs.determine-environment.outputs.environment }}
+          EOF
+
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Build application
+        run: |
+          cd frontend
+          npm run build
+
+      - name: Deploy to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ steps.get-swa-token.outputs.swa-token }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: "upload"
+          app_location: "frontend"
+          output_location: "dist"
+
+  deployment-summary:
+    needs: [determine-environment, deploy-infrastructure, deploy-backend, deploy-frontend]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deployment Summary
+        run: |
+          echo "## Deployment Summary for ${{ needs.determine-environment.outputs.environment }} environment" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Component | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Infrastructure | ${{ needs.deploy-infrastructure.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Backend | ${{ needs.deploy-backend.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend | ${{ needs.deploy-frontend.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
