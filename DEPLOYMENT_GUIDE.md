@@ -7,7 +7,7 @@ This guide provides step-by-step instructions for setting up CI/CD and deploying
 ### Azure Setup
 1. **Azure Subscription** with appropriate permissions
 2. **Azure CLI** installed locally
-3. **Service Principal** for GitHub Actions authentication
+3. **OIDC Authentication** for GitHub Actions (recommended) or Service Principal (deprecated)
 
 ### GitHub Setup
 1. GitHub repository with your code
@@ -16,7 +16,20 @@ This guide provides step-by-step instructions for setting up CI/CD and deploying
 
 ## Initial Setup
 
-### 1. Create Azure Service Principal
+### 1. Authentication Setup (Choose One)
+
+#### Option A: OIDC Authentication (Recommended) ⭐
+
+**This is the recommended secure approach.** Follow the detailed guide in [`AZURE_OIDC_SETUP_GUIDE.md`](AZURE_OIDC_SETUP_GUIDE.md) for complete setup instructions.
+
+Quick summary:
+1. Create Azure App Registration
+2. Configure federated identity credentials for GitHub
+3. Set GitHub repository secrets: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`
+
+#### Option B: Service Principal (Deprecated) ⚠️
+
+**This method is deprecated and less secure.** Use only if OIDC is not available.
 
 ```bash
 # Create service principal
@@ -67,7 +80,14 @@ Repeat for `staging.json` and `prod.json`.
 
 #### Configure GitHub Secrets
 
-**Repository Secrets (Available to all environments):**
+**For OIDC Authentication (Recommended):**
+```
+AZURE_CLIENT_ID = {application-id}
+AZURE_TENANT_ID = {tenant-id}
+AZURE_SUBSCRIPTION_ID = {subscription-id}
+```
+
+**For Service Principal Authentication (Deprecated):**
 ```
 AZURE_CREDENTIALS = {service-principal-json-output}
 ```
