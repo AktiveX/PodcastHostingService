@@ -2,11 +2,52 @@
 
 This directory contains automation scripts to help set up Azure OIDC authentication for GitHub Actions.
 
-## Azure OIDC Setup Scripts
+## Quick Start (Recommended)
 
-These scripts automate the process of configuring OpenID Connect (OIDC) authentication between GitHub Actions and Azure, eliminating the need for long-lived service principal credentials.
+### Complete Setup Script (Windows PowerShell)
 
-### PowerShell Script (Windows)
+**File:** `Complete-AzureOIDCSetup.ps1` - **⭐ RECOMMENDED FOR MOST USERS**
+
+This comprehensive script handles the entire OIDC setup process with enhanced features:
+
+**Quick Run:**
+```powershell
+# Simple execution with pre-configured repository settings
+.\scripts\Run-PodcastOIDCSetup.ps1
+```
+
+**Advanced Usage:**
+```powershell
+# Basic usage
+.\scripts\Complete-AzureOIDCSetup.ps1 -GitHubOrg "YourOrg" -GitHubRepo "YourRepo"
+
+# Preview mode (see what would be done without making changes)
+.\scripts\Complete-AzureOIDCSetup.ps1 -GitHubOrg "YourOrg" -GitHubRepo "YourRepo" -WhatIf
+
+# Custom app name and skip browser opening
+.\scripts\Complete-AzureOIDCSetup.ps1 -GitHubOrg "YourOrg" -GitHubRepo "YourRepo" -AppName "my-app" -SkipBrowser
+```
+
+**Enhanced Features:**
+- ✅ **Complete automation** - handles entire setup process
+- ✅ **Error handling** with detailed messages and recovery guidance
+- ✅ **Prerequisites checking** - validates Azure CLI and login status
+- ✅ **Colored output** for better readability
+- ✅ **WhatIf mode** to preview changes before execution
+- ✅ **Secrets file generation** - saves credentials to a text file for easy copying
+- ✅ **Browser integration** - optionally opens GitHub settings page
+- ✅ **Comprehensive validation** - checks for existing resources to avoid duplicates
+
+**Parameters:**
+- `-GitHubOrg` (required): Your GitHub organization or username
+- `-GitHubRepo` (required): Your repository name
+- `-AppName` (optional): Custom name for the Azure App Registration (default: "podcast-hosting-github-oidc")
+- `-WhatIf` (optional): Show what would be done without making changes
+- `-SkipBrowser` (optional): Don't open GitHub repository settings in browser
+
+## Alternative Scripts
+
+### Basic PowerShell Script (Windows)
 
 **File:** `setup-azure-oidc.ps1`
 
