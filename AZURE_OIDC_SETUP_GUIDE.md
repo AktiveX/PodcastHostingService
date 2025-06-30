@@ -164,6 +164,7 @@ Your workflow is already updated to use OIDC authentication. The key changes are
        client-id: ${{ secrets.AZURE_CLIENT_ID }}
        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+       auth-type: IDENTITY
    ```
 
 ## Step 7: Remove Old Service Principal (Optional)
@@ -188,15 +189,28 @@ az ad sp delete --id <OLD_SERVICE_PRINCIPAL_APP_ID>
 
 ### Common Issues
 
-1. **"AADSTS70021: No matching federated identity record found"**
+1. **"Using auth-type: SERVICE_PRINCIPAL. Not all values are present"**
+   - **Root Cause**: The azure/login action is defaulting to SERVICE_PRINCIPAL mode instead of OIDC
+   - **Solution**: Add `auth-type: IDENTITY` to your azure/login step:
+   ```yaml
+   - name: Azure Login with OIDC
+     uses: azure/login@v1
+     with:
+       client-id: ${{ secrets.AZURE_CLIENT_ID }}
+       tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+       subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+       auth-type: IDENTITY
+   ```
+
+2. **"AADSTS70021: No matching federated identity record found"**
    - Verify the federated identity credential subject matches your repository exactly
    - Check the branch name in the federated credential matches the triggering branch
 
-2. **"AADSTS50126: Invalid username or password"**
+3. **"AADSTS50126: Invalid username or password"**
    - Verify the Client ID, Tenant ID, and Subscription ID are correct
    - Ensure the App Registration has been properly created
 
-3. **"AuthorizationFailed: The client does not have authorization to perform action"**
+4. **"AuthorizationFailed: The client does not have authorization to perform action"**
    - Check that the service principal has the necessary role assignments
    - Verify the scope of the role assignments includes your subscription/resource groups
 
