@@ -9,12 +9,12 @@ $GitHubRepo = "PodcastHostingService"  # Your repository name
 $setupScriptPath = Join-Path $PSScriptRoot "Complete-AzureOIDCSetup.ps1"
 
 if (-not (Test-Path $setupScriptPath)) {
-    Write-Host "❌ Complete-AzureOIDCSetup.ps1 not found in scripts directory" -ForegroundColor Red
+    Write-Host "ERROR: Complete-AzureOIDCSetup.ps1 not found in scripts directory" -ForegroundColor Red
     Write-Host "Please ensure you're running this script from the correct location" -ForegroundColor Yellow
     exit 1
 }
 
-Write-Host "🚀 Starting Azure OIDC Setup for PodcastHostingService" -ForegroundColor Cyan
+Write-Host "Starting Azure OIDC Setup for PodcastHostingService" -ForegroundColor Cyan
 Write-Host "Repository: $GitHubOrg/$GitHubRepo" -ForegroundColor Yellow
 Write-Host ""
 
@@ -29,11 +29,11 @@ $choice = Read-Host "Enter your choice (1-3)"
 
 switch ($choice) {
     "1" {
-        Write-Host "`n🔍 Running in preview mode..." -ForegroundColor Magenta
+        Write-Host "`nRunning in preview mode..." -ForegroundColor Magenta
         & $setupScriptPath -GitHubOrg $GitHubOrg -GitHubRepo $GitHubRepo -WhatIf
     }
     "2" {
-        Write-Host "`n⚡ Running complete setup..." -ForegroundColor Green
+        Write-Host "`nRunning complete setup..." -ForegroundColor Green
         & $setupScriptPath -GitHubOrg $GitHubOrg -GitHubRepo $GitHubRepo
     }
     "3" {
@@ -41,7 +41,7 @@ switch ($choice) {
         exit 0
     }
     default {
-        Write-Host "❌ Invalid choice. Please run the script again and select 1, 2, or 3." -ForegroundColor Red
+        Write-Host "Invalid choice. Please run the script again and select 1, 2, or 3." -ForegroundColor Red
         exit 1
     }
 }
