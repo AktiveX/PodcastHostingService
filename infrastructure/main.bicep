@@ -1,3 +1,4 @@
+// Infrastructure deployment for Podcast Hosting Service
 @description('The environment name (dev, staging, prod)')
 param environment string
 
