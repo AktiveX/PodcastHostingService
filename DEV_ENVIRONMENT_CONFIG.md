@@ -25,11 +25,16 @@ The Azure OIDC authentication has been successfully configured for the PodcastHo
 - ✅ **Contributor** - Full access to manage Azure resources
 - ✅ **User Access Administrator** - Ability to assign roles to other resources
 
-### Configured OIDC Federated Credentials
+### Configured OIDC Federated Credentials ✅ VERIFIED
 
-- ✅ **Main Branch**: `repo:AktiveX/PodcastHostingService:ref:refs/heads/main`
-- ✅ **Staging Branch**: `repo:AktiveX/PodcastHostingService:ref:refs/heads/staging`
-- ✅ **Dev Branch**: `repo:AktiveX/PodcastHostingService:ref:refs/heads/dev`
+- ✅ **Main Branch**: `repo:AktiveX/PodcastHostingService:ref:refs/heads/main` (ID: 5f3d8e7f-ca12-43d8-aff1-4521d4cf8af4)
+- ✅ **Staging Branch**: `repo:AktiveX/PodcastHostingService:ref:refs/heads/staging` (ID: a4b087a2-0154-4edd-b341-b42d2a4659d3)
+- ✅ **Dev Branch**: `repo:AktiveX/PodcastHostingService:ref:refs/heads/dev` (ID: 3a2e19fb-1042-47a3-b9ef-edbdec36bc32)
+
+**Credential Names in Azure:**
+- `podcast-hosting-main`
+- `podcast-hosting-staging`
+- `podcast-hosting-dev`
 
 ## 🔑 GitHub Repository Secrets Required
 
@@ -78,7 +83,8 @@ Secret Value: 646b5e55-76ae-42a5-a926-0cd2d9f51fce
 
 | Component | Status | Notes |
 |-----------|--------|--------|
-| **Azure OIDC Setup** | ✅ Complete | All resources created successfully |
+| **Azure OIDC Setup** | ✅ Complete | All resources created and verified |
+| **Federated Credentials** | ✅ Complete | All 3 branch credentials created successfully |
 | **GitHub Workflow Fixed** | ✅ Complete | Added `auth-type: IDENTITY` parameter |
 | **Documentation** | ✅ Complete | Comprehensive guides created |
 | **GitHub Secrets** | ⏳ Pending | Need to add 3 secrets to repository |

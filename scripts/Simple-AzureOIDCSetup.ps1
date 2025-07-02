@@ -129,7 +129,11 @@ foreach ($branch in $branches) {
                 Write-Host "   Credential for '$branch' already exists" -ForegroundColor Yellow
             }
             else {
-                $credJson = @{
+                Write-Host "Creating federated credential for '$branch' branch..." -ForegroundColor Blue
+                
+                # Create temporary JSON file to avoid PowerShell JSON parsing issues
+                $tempJsonFile = "temp-$branch-cred.json"
+                $credContent = @{
                     name = $credName
                     issuer = "https://token.actions.githubusercontent.com"
                     subject = $subject
@@ -137,7 +141,9 @@ foreach ($branch in $branches) {
                     audiences = @("api://AzureADTokenExchange")
                 } | ConvertTo-Json -Depth 3
                 
-                az ad app federated-credential create --id $appId --parameters $credJson --output none
+                $credContent | Out-File -FilePath $tempJsonFile -Encoding UTF8
+                az ad app federated-credential create --id $appId --parameters $tempJsonFile --output none
+                Remove-Item $tempJsonFile -Force -ErrorAction SilentlyContinue
                 Write-Host "   Created credential for '$branch' branch" -ForegroundColor Gray
             }
         }
