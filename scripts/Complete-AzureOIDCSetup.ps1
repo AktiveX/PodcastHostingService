@@ -199,7 +199,9 @@ function New-FederatedCredentials {
             else {
                 Write-ColorOutput "Creating federated credential for '$branch' branch..." -Color "Blue"
                 
-                $credentialJson = @{
+                # Create temporary JSON file to avoid PowerShell quoting issues
+                $tempJsonFile = "temp-$branch-cred.json"
+                $credContent = @{
                     name = $credentialName
                     issuer = "https://token.actions.githubusercontent.com"
                     subject = $subject
@@ -207,7 +209,9 @@ function New-FederatedCredentials {
                     audiences = @("api://AzureADTokenExchange")
                 } | ConvertTo-Json -Depth 3
                 
-                az ad app federated-credential create --id $AppId --parameters $credentialJson --output none
+                $credContent | Out-File -FilePath $tempJsonFile -Encoding UTF8
+                az ad app federated-credential create --id $AppId --parameters $tempJsonFile --output none
+                Remove-Item $tempJsonFile -Force -ErrorAction SilentlyContinue
                 Write-ColorOutput "[OK] Created federated credential for '$branch' branch" -Color "Green"
             }
         }
@@ -236,7 +240,9 @@ function New-FederatedCredentials {
         else {
             Write-ColorOutput "Creating federated credential for pull requests..." -Color "Blue"
             
-            $prCredentialJson = @{
+            # Create temporary JSON file to avoid PowerShell quoting issues
+            $tempPRJsonFile = "temp-pr-cred.json"
+            $prCredContent = @{
                 name = $prCredentialName
                 issuer = "https://token.actions.githubusercontent.com"
                 subject = $prSubject
@@ -244,12 +250,59 @@ function New-FederatedCredentials {
                 audiences = @("api://AzureADTokenExchange")
             } | ConvertTo-Json -Depth 3
             
-            az ad app federated-credential create --id $AppId --parameters $prCredentialJson --output none
+            $prCredContent | Out-File -FilePath $tempPRJsonFile -Encoding UTF8
+            az ad app federated-credential create --id $AppId --parameters $tempPRJsonFile --output none
+            Remove-Item $tempPRJsonFile -Force -ErrorAction SilentlyContinue
             Write-ColorOutput "[OK] Created federated credential for pull requests" -Color "Green"
         }
     }
     catch {
         Write-ColorOutput "⚠️  Failed to create pull request federated credential: $($_.Exception.Message)" -Color "Yellow"
+    }
+    
+    # Create environment credentials for GitHub Environments
+    Write-ColorOutput "`nCreating environment-based federated credentials..." -Color "Blue"
+    $environments = @("dev", "staging", "prod")
+    
+    foreach ($env in $environments) {
+        $envCredentialName = "podcast-hosting-$env-environment"
+        $envSubject = "repo:$GitHubOrg/${GitHubRepo}:environment:$env"
+        
+        if ($WhatIf) {
+            Write-ColorOutput "[WhatIf] Would create federated credential for '$env' environment" -Color "Magenta"
+            Write-ColorOutput "   Subject: $envSubject" -Color "Gray"
+            continue
+        }
+        
+        try {
+            $existingCreds = az ad app federated-credential list --id $AppId --output json | ConvertFrom-Json
+            $existingEnvCred = $existingCreds | Where-Object { $_.name -eq $envCredentialName }
+            
+            if ($existingEnvCred) {
+                Write-ColorOutput "[OK] Environment credential '$envCredentialName' already exists" -Color "Yellow"
+            }
+            else {
+                Write-ColorOutput "Creating federated credential for '$env' environment..." -Color "Blue"
+                
+                # Create temporary JSON file to avoid PowerShell quoting issues
+                $tempJsonFile = "temp-$env-env-cred.json"
+                $envCredContent = @{
+                    name = $envCredentialName
+                    issuer = "https://token.actions.githubusercontent.com"
+                    subject = $envSubject
+                    description = "GitHub Actions OIDC for $env environment"
+                    audiences = @("api://AzureADTokenExchange")
+                } | ConvertTo-Json -Depth 3
+                
+                $envCredContent | Out-File -FilePath $tempJsonFile -Encoding UTF8
+                az ad app federated-credential create --id $AppId --parameters $tempJsonFile --output none
+                Remove-Item $tempJsonFile -Force -ErrorAction SilentlyContinue
+                Write-ColorOutput "[OK] Created federated credential for '$env' environment" -Color "Green"
+            }
+        }
+        catch {
+            Write-ColorOutput "⚠️  Failed to create federated credential for '$env' environment: $($_.Exception.Message)" -Color "Yellow"
+        }
     }
 }
 
