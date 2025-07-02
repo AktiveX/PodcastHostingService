@@ -1,5 +1,10 @@
 name: Full Deployment Pipeline
 
+# Required for OIDC authentication
+permissions:
+  id-token: write
+  contents: read
+
 on:
   push:
     branches: [dev, staging, main]
@@ -109,6 +114,9 @@ jobs:
     if: needs.determine-environment.outputs.deploy-infrastructure == 'true'
     runs-on: ubuntu-latest
     environment: ${{ needs.determine-environment.outputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
     outputs:
       function-app-name: ${{ steps.deployment.outputs.function-app-name }}
       static-web-app-name: ${{ steps.deployment.outputs.static-web-app-name }}
@@ -116,10 +124,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Azure Login
+      - name: Azure Login with OIDC
         uses: azure/login@v1
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          auth-type: IDENTITY
 
       - name: Create Resource Group
         run: |
@@ -162,11 +173,14 @@ jobs:
   deploy-backend:
     needs: [determine-environment, deploy-infrastructure]
     if: |
-      always() && 
+      always() &&
       needs.determine-environment.outputs.deploy-backend == 'true' &&
       (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped')
     runs-on: ubuntu-latest
     environment: ${{ needs.determine-environment.outputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -196,10 +210,13 @@ jobs:
           cd backend
           dotnet publish --configuration Release --output ./output --no-build
 
-      - name: Azure Login
+      - name: Azure Login with OIDC
         uses: azure/login@v1
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          auth-type: IDENTITY
 
       - name: Get Function App name
         id: get-function-app
@@ -219,17 +236,20 @@ jobs:
         with:
           app-name: ${{ steps.get-function-app.outputs.function-app-name }}
           package: backend/output
-          publish-profile: ${{ secrets[format('AZURE_FUNCTIONAPP_PUBLISH_PROFILE_{0}', upper(needs.determine-environment.outputs.environment))] }}
+          publish-profile: ${{ secrets[format('AZURE_FUNCTIONAPP_PUBLISH_PROFILE_{0}', needs.determine-environment.outputs.environment)] }}
 
   deploy-frontend:
     needs: [determine-environment, deploy-infrastructure, deploy-backend]
     if: |
-      always() && 
+      always() &&
       needs.determine-environment.outputs.deploy-frontend == 'true' &&
       (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped') &&
       (needs.deploy-backend.result == 'success' || needs.deploy-backend.result == 'skipped')
     runs-on: ubuntu-latest
     environment: ${{ needs.determine-environment.outputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -241,10 +261,13 @@ jobs:
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Azure Login
+      - name: Azure Login with OIDC
         uses: azure/login@v1
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          auth-type: IDENTITY
 
       - name: Get Function App URL
         id: get-function-app
