@@ -45,58 +45,53 @@ This comprehensive script handles the entire OIDC setup process with enhanced fe
 - `-WhatIf` (optional): Show what would be done without making changes
 - `-SkipBrowser` (optional): Don't open GitHub repository settings in browser
 
-## Alternative Scripts
+## GitHub Secrets Setup
 
-### Basic PowerShell Script (Windows)
+### Add GitHub Secrets Script
 
-**File:** `setup-azure-oidc.ps1`
+**File:** `Add-GitHubSecrets.ps1` - **✅ TESTED AND VALIDATED**
+
+This script automatically adds the Azure OIDC secrets to your GitHub repository using GitHub CLI:
 
 **Usage:**
 ```powershell
-# Basic usage
-.\scripts\setup-azure-oidc.ps1 -GitHubOrg "YourGitHubOrg" -GitHubRepo "YourRepoName"
+# Basic usage (uses default repository settings)
+.\scripts\Add-GitHubSecrets.ps1
 
-# With custom app name
-.\scripts\setup-azure-oidc.ps1 -GitHubOrg "YourOrg" -GitHubRepo "YourRepo" -AppName "my-custom-app"
+# Custom repository
+.\scripts\Add-GitHubSecrets.ps1 -GitHubOrg "YourOrg" -GitHubRepo "YourRepo"
 
-# Preview mode (see what would be done without making changes)
-.\scripts\setup-azure-oidc.ps1 -GitHubOrg "YourOrg" -GitHubRepo "YourRepo" -WhatIf
+# Custom secrets file
+.\scripts\Add-GitHubSecrets.ps1 -SecretsFile "custom-secrets.txt"
 ```
 
-**Parameters:**
-- `-GitHubOrg` (required): Your GitHub organization or username
-- `-GitHubRepo` (required): Your repository name
-- `-AppName` (optional): Custom name for the Azure App Registration (default: "podcast-hosting-github-oidc")
-- `-WhatIf` (optional): Show what would be done without making changes
+**Features:**
+- ✅ **Automatic secret upload** to GitHub repository
+- ✅ **Validation and verification** of added secrets
+- ✅ **GitHub CLI integration** with authentication check
+- ✅ **Error handling** with clear status messages
+- ✅ **Post-setup verification** to confirm all secrets are configured
 
-### Bash Script (Linux/macOS)
+**Prerequisites:**
+- GitHub CLI installed and authenticated (`gh auth login`)
+- Azure OIDC setup completed (azure-secrets.txt file present)
 
-**File:** `setup-azure-oidc.sh`
+## 📁 Current Scripts Directory
 
-**Usage:**
-```bash
-# Make script executable (Linux/macOS only)
-chmod +x scripts/setup-azure-oidc.sh
+All scripts have been optimized for PowerShell and are emoji-free for maximum compatibility:
 
-# Basic usage
-./scripts/setup-azure-oidc.sh -o "YourGitHubOrg" -r "YourRepoName"
-
-# With custom app name
-./scripts/setup-azure-oidc.sh -o "YourOrg" -r "YourRepo" -n "my-custom-app"
-
-# Preview mode
-./scripts/setup-azure-oidc.sh -o "YourOrg" -r "YourRepo" --whatif
-
-# Show help
-./scripts/setup-azure-oidc.sh --help
+```
+scripts/
+├── Add-GitHubSecrets.ps1           # ✅ GitHub secrets automation
+├── azure-secrets.txt               # ✅ Generated OIDC credentials
+├── Complete-AzureOIDCSetup.ps1     # ✅ Comprehensive OIDC setup
+├── README.md                       # ✅ This documentation
+├── Run-PodcastOIDCSetup.ps1        # ✅ Interactive setup wrapper
+├── CLEANUP_SUMMARY.md              # 📄 Cleanup documentation
+└── SCRIPT_FUNCTIONALITY_COMPARISON.md  # 📄 Script analysis
 ```
 
-**Parameters:**
-- `-o, --org` (required): Your GitHub organization or username
-- `-r, --repo` (required): Your repository name
-- `-n, --name` (optional): Custom name for the Azure App Registration
-- `-w, --whatif` (optional): Show what would be done without making changes
-- `-h, --help`: Show help message
+**Note**: All redundant and bash scripts have been removed for clarity. Only PowerShell scripts optimized for Windows development remain.
 
 ## What These Scripts Do
 

@@ -49,10 +49,10 @@ function Test-Prerequisites {
     # Check if Azure CLI is installed
     try {
         $azVersion = az version --output json 2>$null | ConvertFrom-Json
-        Write-ColorOutput "✅ Azure CLI version: $($azVersion.'azure-cli')" -Color "Green"
+        Write-ColorOutput "[OK] Azure CLI version: $($azVersion.'azure-cli')" -Color "Green"
     }
     catch {
-        Write-ColorOutput "❌ Azure CLI is not installed or not in PATH" -Color "Red"
+        Write-ColorOutput "[ERROR] Azure CLI is not installed or not in PATH" -Color "Red"
         Write-ColorOutput "Please install Azure CLI from: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli" -Color "Yellow"
         exit 1
     }
@@ -60,12 +60,12 @@ function Test-Prerequisites {
     # Check if logged into Azure
     try {
         $context = az account show --output json 2>$null | ConvertFrom-Json
-        Write-ColorOutput "✅ Logged into Azure as: $($context.user.name)" -Color "Green"
+        Write-ColorOutput "[OK] Logged into Azure as: $($context.user.name)" -Color "Green"
         Write-ColorOutput "   Subscription: $($context.name) ($($context.id))" -Color "Gray"
         return $context
     }
     catch {
-        Write-ColorOutput "❌ Not logged into Azure" -Color "Red"
+        Write-ColorOutput "[ERROR] Not logged into Azure" -Color "Red"
         Write-ColorOutput "Please run: az login" -Color "Yellow"
         exit 1
     }
@@ -87,7 +87,7 @@ function New-AppRegistration {
         $existingApp = az ad app list --display-name $AppName --output json | ConvertFrom-Json
         
         if ($existingApp.Count -gt 0) {
-            Write-ColorOutput "✅ App Registration '$AppName' already exists" -Color "Yellow"
+            Write-ColorOutput "[OK] App Registration '$AppName' already exists" -Color "Yellow"
             $appId = $existingApp[0].appId
         }
         else {
@@ -96,13 +96,13 @@ function New-AppRegistration {
             
             $newApp = az ad app list --display-name $AppName --output json | ConvertFrom-Json
             $appId = $newApp[0].appId
-            Write-ColorOutput "✅ Created App Registration: $appId" -Color "Green"
+            Write-ColorOutput "[OK] Created App Registration: $appId" -Color "Green"
         }
         
         return $appId
     }
     catch {
-        Write-ColorOutput "❌ Failed to create App Registration: $($_.Exception.Message)" -Color "Red"
+        Write-ColorOutput "[ERROR] Failed to create App Registration: $($_.Exception.Message)" -Color "Red"
         exit 1
     }
 }
@@ -123,16 +123,16 @@ function New-ServicePrincipal {
         $existingSP = az ad sp show --id $AppId --output json 2>$null
         
         if ($existingSP) {
-            Write-ColorOutput "✅ Service Principal already exists" -Color "Yellow"
+            Write-ColorOutput "[OK] Service Principal already exists" -Color "Yellow"
         }
         else {
             Write-ColorOutput "Creating Service Principal..." -Color "Blue"
             az ad sp create --id $AppId --output none
-            Write-ColorOutput "✅ Created Service Principal" -Color "Green"
+            Write-ColorOutput "[OK] Created Service Principal" -Color "Green"
         }
     }
     catch {
-        Write-ColorOutput "❌ Failed to create Service Principal: $($_.Exception.Message)" -Color "Red"
+        Write-ColorOutput "[ERROR] Failed to create Service Principal: $($_.Exception.Message)" -Color "Red"
         exit 1
     }
 }
@@ -158,10 +158,10 @@ function Set-AzurePermissions {
             if ($existingAssignment.Count -eq 0) {
                 Write-ColorOutput "Assigning '$role' role..." -Color "Blue"
                 az role assignment create --assignee $AppId --role $role --scope "/subscriptions/$SubscriptionId" --output none
-                Write-ColorOutput "✅ Assigned '$role' role" -Color "Green"
+                Write-ColorOutput "[OK] Assigned '$role' role" -Color "Green"
             }
             else {
-                Write-ColorOutput "✅ '$role' role already assigned" -Color "Yellow"
+                Write-ColorOutput "[OK] '$role' role already assigned" -Color "Yellow"
             }
         }
         catch {
@@ -194,7 +194,7 @@ function New-FederatedCredentials {
             $existingCred = $existingCreds | Where-Object { $_.name -eq $credentialName }
             
             if ($existingCred) {
-                Write-ColorOutput "✅ Federated credential '$credentialName' already exists" -Color "Yellow"
+                Write-ColorOutput "[OK] Federated credential '$credentialName' already exists" -Color "Yellow"
             }
             else {
                 Write-ColorOutput "Creating federated credential for '$branch' branch..." -Color "Blue"
@@ -208,7 +208,7 @@ function New-FederatedCredentials {
                 } | ConvertTo-Json -Depth 3
                 
                 az ad app federated-credential create --id $AppId --parameters $credentialJson --output none
-                Write-ColorOutput "✅ Created federated credential for '$branch' branch" -Color "Green"
+                Write-ColorOutput "[OK] Created federated credential for '$branch' branch" -Color "Green"
             }
         }
         catch {
@@ -231,7 +231,7 @@ function New-FederatedCredentials {
         $existingPRCred = $existingCreds | Where-Object { $_.name -eq $prCredentialName }
         
         if ($existingPRCred) {
-            Write-ColorOutput "✅ Pull request federated credential already exists" -Color "Yellow"
+            Write-ColorOutput "[OK] Pull request federated credential already exists" -Color "Yellow"
         }
         else {
             Write-ColorOutput "Creating federated credential for pull requests..." -Color "Blue"
@@ -245,7 +245,7 @@ function New-FederatedCredentials {
             } | ConvertTo-Json -Depth 3
             
             az ad app federated-credential create --id $AppId --parameters $prCredentialJson --output none
-            Write-ColorOutput "✅ Created federated credential for pull requests" -Color "Green"
+            Write-ColorOutput "[OK] Created federated credential for pull requests" -Color "Green"
         }
     }
     catch {
@@ -257,10 +257,10 @@ function New-FederatedCredentials {
 function Show-Results {
     param($AppId, $TenantId, $SubscriptionId, $GitHubOrg, $GitHubRepo, $SkipBrowser)
     
-    Write-ColorOutput "`n=== 🎉 Setup Complete! ===" -Color "Cyan"
+    Write-ColorOutput "`n=== Setup Complete! ===" -Color "Cyan"
     
     # Display the secrets
-    Write-ColorOutput "`n📋 GitHub Repository Secrets" -Color "Yellow"
+    Write-ColorOutput "`nGitHub Repository Secrets" -Color "Yellow"
     Write-ColorOutput "Add these secrets to your GitHub repository:" -Color "White"
     Write-ColorOutput ""
     Write-ColorOutput "AZURE_CLIENT_ID" -Color "Green"
@@ -303,18 +303,18 @@ For detailed instructions, see: AZURE_OIDC_SETUP_GUIDE.md
 "@
     
     $secretsContent | Out-File -FilePath $secretsFile -Encoding UTF8
-    Write-ColorOutput "`n💾 Secrets saved to: $secretsFile" -Color "Blue"
+    Write-ColorOutput "`nSecrets saved to: $secretsFile" -Color "Blue"
     
     # Display next steps
-    Write-ColorOutput "`n📝 Next Steps:" -Color "Yellow"
-    Write-ColorOutput "1. 🔑 Add the secrets above to your GitHub repository" -Color "White"
-    Write-ColorOutput "2. 🌍 Create GitHub environments: dev, staging, prod (optional)" -Color "White"
-    Write-ColorOutput "3. 🧪 Test the deployment workflow" -Color "White"
-    Write-ColorOutput "4. 🧹 Remove old AZURE_CREDENTIALS secret if it exists" -Color "White"
+    Write-ColorOutput "`nNext Steps:" -Color "Yellow"
+    Write-ColorOutput "1. Add the secrets above to your GitHub repository" -Color "White"
+    Write-ColorOutput "2. Create GitHub environments: dev, staging, prod (optional)" -Color "White"
+    Write-ColorOutput "3. Test the deployment workflow" -Color "White"
+    Write-ColorOutput "4. Remove old AZURE_CREDENTIALS secret if it exists" -Color "White"
     
     # Offer to open GitHub settings
     $githubUrl = "https://github.com/$GitHubOrg/$GitHubRepo/settings/secrets/actions"
-    Write-ColorOutput "`n🌐 GitHub Repository Settings:" -Color "Yellow"
+    Write-ColorOutput "`nGitHub Repository Settings:" -Color "Yellow"
     Write-ColorOutput "$githubUrl" -Color "Blue"
     
     if (-not $SkipBrowser) {
@@ -322,7 +322,7 @@ For detailed instructions, see: AZURE_OIDC_SETUP_GUIDE.md
         if ($openBrowser -ne 'n' -and $openBrowser -ne 'N') {
             try {
                 Start-Process $githubUrl
-                Write-ColorOutput "✅ Opened GitHub repository settings in browser" -Color "Green"
+                Write-ColorOutput "[OK] Opened GitHub repository settings in browser" -Color "Green"
             }
             catch {
                 Write-ColorOutput "⚠️  Could not open browser. Please navigate to the URL above manually." -Color "Yellow"
@@ -330,7 +330,7 @@ For detailed instructions, see: AZURE_OIDC_SETUP_GUIDE.md
         }
     }
     
-    Write-ColorOutput "`n📖 For detailed troubleshooting and additional information:" -Color "Yellow"
+    Write-ColorOutput "`nFor detailed troubleshooting and additional information:" -Color "Yellow"
     Write-ColorOutput "   • AZURE_OIDC_SETUP_GUIDE.md" -Color "Blue"
     Write-ColorOutput "   • DEPLOYMENT_GUIDE.md" -Color "Blue"
     Write-ColorOutput "   • scripts/README.md" -Color "Blue"
@@ -338,12 +338,12 @@ For detailed instructions, see: AZURE_OIDC_SETUP_GUIDE.md
 
 # Main execution
 try {
-    Write-ColorOutput "🚀 Complete Azure OIDC Setup for GitHub Actions" -Color "Cyan"
+    Write-ColorOutput "[SETUP] Complete Azure OIDC Setup for GitHub Actions" -Color "Cyan"
     Write-ColorOutput "Repository: $GitHubOrg/$GitHubRepo" -Color "Yellow"
     Write-ColorOutput "App Registration: $AppName" -Color "Yellow"
     
     if ($WhatIf) {
-        Write-ColorOutput "🔍 Running in WhatIf mode - no changes will be made" -Color "Magenta"
+        Write-ColorOutput "[PREVIEW] Running in WhatIf mode - no changes will be made" -Color "Magenta"
     }
     
     # Step 1: Check prerequisites
@@ -368,12 +368,12 @@ try {
         Show-Results -AppId $appId -TenantId $tenantId -SubscriptionId $subscriptionId -GitHubOrg $GitHubOrg -GitHubRepo $GitHubRepo -SkipBrowser $SkipBrowser
     }
     else {
-        Write-ColorOutput "`n🔍 WhatIf mode completed successfully" -Color "Magenta"
+        Write-ColorOutput "`n[PREVIEW] WhatIf mode completed successfully" -Color "Magenta"
         Write-ColorOutput "Run the script without -WhatIf to make actual changes" -Color "Yellow"
     }
 }
 catch {
-    Write-ColorOutput "`n❌ Script failed: $($_.Exception.Message)" -Color "Red"
+    Write-ColorOutput "`n[ERROR] Script failed: $($_.Exception.Message)" -Color "Red"
     Write-ColorOutput "Stack trace: $($_.ScriptStackTrace)" -Color "Gray"
     exit 1
 }
