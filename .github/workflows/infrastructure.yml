@@ -85,14 +85,14 @@ jobs:
             --tags Environment=${{ needs.determine-environment.outputs.environment }} Project=PodcastHostingService
 
       - name: Deploy Bicep Template
-        uses: azure/arm-deploy@v1
-        with:
-          scope: resourcegroup
-          resourceGroupName: ${{ needs.determine-environment.outputs.resource-group }}
-          template: infrastructure/main.bicep
-          parameters: infrastructure/parameters/${{ needs.determine-environment.outputs.environment }}.json
-          deploymentMode: Incremental
-          deploymentName: infrastructure-${{ github.run_number }}
+        run: |
+          az deployment group create \
+            --resource-group ${{ needs.determine-environment.outputs.resource-group }} \
+            --template-file infrastructure/main.bicep \
+            --parameters @infrastructure/parameters/${{ needs.determine-environment.outputs.environment }}.json \
+            --mode Incremental \
+            --name infrastructure-${{ github.run_number }} \
+            --verbose
 
       - name: Get deployment outputs
         id: deployment
