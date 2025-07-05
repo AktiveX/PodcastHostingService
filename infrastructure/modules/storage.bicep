@@ -7,6 +7,9 @@ param location string
 @description('The environment name')
 param environment string
 
+@description('The principal ID of the function app managed identity')
+param functionAppPrincipalId string
+
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   name: name
   location: location
@@ -69,8 +72,38 @@ resource episodeContainer 'Microsoft.Storage/storageAccounts/blobServices/contai
   }
 }
 
+// Role assignments for Function App managed identity
+resource storageBlobDataContributorRoleDefinition 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
+  scope: subscription()
+  name: 'ba92f5b4-2d11-453d-a403-e96b0029c9fe' // Storage Blob Data Contributor
+}
+
+resource storageAccountContributorRoleDefinition 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
+  scope: subscription()
+  name: '17d1049b-9a84-46fb-8f53-869881c3d3ab' // Storage Account Contributor
+}
+
+resource functionAppBlobDataAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: storageAccount
+  name: guid(storageAccount.id, functionAppPrincipalId, storageBlobDataContributorRoleDefinition.id)
+  properties: {
+    roleDefinitionId: storageBlobDataContributorRoleDefinition.id
+    principalId: functionAppPrincipalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource functionAppStorageAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: storageAccount
+  name: guid(storageAccount.id, functionAppPrincipalId, storageAccountContributorRoleDefinition.id)
+  properties: {
+    roleDefinitionId: storageAccountContributorRoleDefinition.id
+    principalId: functionAppPrincipalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
 // Outputs
 output name string = storageAccount.name
 output id string = storageAccount.id
-output connectionString string = 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};AccountKey=${storageAccount.listKeys().keys[0].value};EndpointSuffix=core.windows.net'
 output primaryEndpoints object = storageAccount.properties.primaryEndpoints

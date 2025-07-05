@@ -18,7 +18,6 @@ resource hostingPlan 'Microsoft.Web/serverfarms@2023-01-01' = {
     capacity: 0
   }
   properties: {
-    computeMode: 'Dynamic'
     reserved: false
   }
   tags: {

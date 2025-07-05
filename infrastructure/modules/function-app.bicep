@@ -7,8 +7,8 @@ param location string
 @description('The environment name')
 param environment string
 
-@description('The storage connection string')
-param storageConnectionString string
+@description('The storage account name')
+param storageAccountName string
 
 @description('The Application Insights instrumentation key')
 param appInsightsInstrumentationKey string
@@ -20,17 +20,28 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
   name: name
   location: location
   kind: 'functionapp'
+  identity: {
+    type: 'SystemAssigned'
+  }
   properties: {
     serverFarmId: hostingPlanId
     siteConfig: {
       appSettings: [
         {
-          name: 'AzureWebJobsStorage'
-          value: storageConnectionString
+          name: 'AzureWebJobsStorage__accountName'
+          value: storageAccountName
         }
         {
-          name: 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING'
-          value: storageConnectionString
+          name: 'AzureWebJobsStorage__credential'
+          value: 'managedidentity'
+        }
+        {
+          name: 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING__accountName'
+          value: storageAccountName
+        }
+        {
+          name: 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING__credential'
+          value: 'managedidentity'
         }
         {
           name: 'WEBSITE_CONTENTSHARE'
@@ -49,8 +60,8 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
           value: appInsightsInstrumentationKey
         }
         {
-          name: 'BlobStorageConnection'
-          value: storageConnectionString
+          name: 'BlobStorageAccountName'
+          value: storageAccountName
         }
         {
           name: 'WEBSITE_RUN_FROM_PACKAGE'
@@ -80,3 +91,4 @@ output name string = functionApp.name
 output id string = functionApp.id
 output functionAppUrl string = 'https://${functionApp.properties.defaultHostName}/api'
 output defaultHostName string = functionApp.properties.defaultHostName
+output principalId string = functionApp.identity.principalId
