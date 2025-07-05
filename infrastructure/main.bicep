@@ -32,14 +32,13 @@ module appInsights 'modules/app-insights.bicep' = {
   }
 }
 
-// Deploy Storage Account (without role assignments first)
+// Deploy Storage Account
 module storage 'modules/storage.bicep' = {
   name: 'storage'
   params: {
     name: storageAccountName
     location: location
     environment: environment
-    functionAppPrincipalId: ''
   }
 }
 

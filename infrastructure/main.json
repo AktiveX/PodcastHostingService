@@ -1,0 +1,765 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.36.1.42791",
+      "templateHash": "12646621391216401271"
+    }
+  },
+  "parameters": {
+    "environment": {
+      "type": "string",
+      "metadata": {
+        "description": "The environment name (dev, staging, prod)"
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "The location for all resources"
+      }
+    },
+    "baseName": {
+      "type": "string",
+      "defaultValue": "podcast",
+      "metadata": {
+        "description": "The base name for all resources"
+      }
+    },
+    "tenantId": {
+      "type": "string",
+      "metadata": {
+        "description": "The AAD tenant ID for authentication"
+      }
+    },
+    "clientId": {
+      "type": "string",
+      "metadata": {
+        "description": "The AAD client ID for authentication"
+      }
+    }
+  },
+  "variables": {
+    "uniqueSuffix": "[uniqueString(resourceGroup().id, parameters('environment'))]",
+    "storageAccountName": "[format('st{0}{1}{2}', parameters('baseName'), parameters('environment'), variables('uniqueSuffix'))]",
+    "functionAppName": "[format('func-{0}-{1}-{2}', parameters('baseName'), parameters('environment'), variables('uniqueSuffix'))]",
+    "staticWebAppName": "[format('swa-{0}-{1}', parameters('baseName'), parameters('environment'))]",
+    "appInsightsName": "[format('ai-{0}-{1}', parameters('baseName'), parameters('environment'))]",
+    "hostingPlanName": "[format('plan-{0}-{1}', parameters('baseName'), parameters('environment'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "appInsights",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "name": {
+            "value": "[variables('appInsightsName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "environment": {
+            "value": "[parameters('environment')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.36.1.42791",
+              "templateHash": "10796039766898067430"
+            }
+          },
+          "parameters": {
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "The name of the Application Insights resource"
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "The location for the Application Insights resource"
+              }
+            },
+            "environment": {
+              "type": "string",
+              "metadata": {
+                "description": "The environment name"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Insights/components",
+              "apiVersion": "2020-02-02",
+              "name": "[parameters('name')]",
+              "location": "[parameters('location')]",
+              "kind": "web",
+              "properties": {
+                "Application_Type": "web",
+                "RetentionInDays": "[if(equals(parameters('environment'), 'prod'), 90, 30)]",
+                "IngestionMode": "ApplicationInsights",
+                "publicNetworkAccessForIngestion": "Enabled",
+                "publicNetworkAccessForQuery": "Enabled"
+              },
+              "tags": {
+                "Environment": "[parameters('environment')]",
+                "Project": "PodcastHostingService"
+              }
+            }
+          ],
+          "outputs": {
+            "name": {
+              "type": "string",
+              "value": "[parameters('name')]"
+            },
+            "id": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Insights/components', parameters('name'))]"
+            },
+            "instrumentationKey": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Insights/components', parameters('name')), '2020-02-02').InstrumentationKey]"
+            },
+            "connectionString": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Insights/components', parameters('name')), '2020-02-02').ConnectionString]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "storage",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "name": {
+            "value": "[variables('storageAccountName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "environment": {
+            "value": "[parameters('environment')]"
+          },
+          "functionAppPrincipalId": {
+            "value": ""
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.36.1.42791",
+              "templateHash": "14427923629845703337"
+            }
+          },
+          "parameters": {
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "The name of the storage account"
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "The location for the storage account"
+              }
+            },
+            "environment": {
+              "type": "string",
+              "metadata": {
+                "description": "The environment name"
+              }
+            },
+            "functionAppPrincipalId": {
+              "type": "string",
+              "metadata": {
+                "description": "The principal ID of the function app managed identity"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Storage/storageAccounts",
+              "apiVersion": "2023-01-01",
+              "name": "[parameters('name')]",
+              "location": "[parameters('location')]",
+              "sku": {
+                "name": "[if(equals(parameters('environment'), 'prod'), 'Standard_ZRS', 'Standard_LRS')]"
+              },
+              "kind": "StorageV2",
+              "properties": {
+                "supportsHttpsTrafficOnly": true,
+                "minimumTlsVersion": "TLS1_2",
+                "allowBlobPublicAccess": true,
+                "allowSharedKeyAccess": true,
+                "networkAcls": {
+                  "defaultAction": "Allow"
+                }
+              },
+              "tags": {
+                "Environment": "[parameters('environment')]",
+                "Project": "PodcastHostingService"
+              }
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/blobServices",
+              "apiVersion": "2023-01-01",
+              "name": "[format('{0}/{1}', parameters('name'), 'default')]",
+              "properties": {
+                "cors": {
+                  "corsRules": [
+                    {
+                      "allowedOrigins": [
+                        "*"
+                      ],
+                      "allowedMethods": [
+                        "GET",
+                        "POST",
+                        "PUT",
+                        "DELETE",
+                        "OPTIONS"
+                      ],
+                      "allowedHeaders": [
+                        "*"
+                      ],
+                      "exposedHeaders": [
+                        "*"
+                      ],
+                      "maxAgeInSeconds": 86400
+                    }
+                  ]
+                },
+                "deleteRetentionPolicy": {
+                  "enabled": true,
+                  "days": "[if(equals(parameters('environment'), 'prod'), 30, 7)]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', parameters('name'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+              "apiVersion": "2023-01-01",
+              "name": "[format('{0}/{1}/{2}', parameters('name'), 'default', 'podcasts')]",
+              "properties": {
+                "publicAccess": "Blob"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts/blobServices', parameters('name'), 'default')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+              "apiVersion": "2023-01-01",
+              "name": "[format('{0}/{1}/{2}', parameters('name'), 'default', 'episodes')]",
+              "properties": {
+                "publicAccess": "Blob"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts/blobServices', parameters('name'), 'default')]"
+              ]
+            },
+            {
+              "condition": "[not(equals(parameters('functionAppPrincipalId'), ''))]",
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[format('Microsoft.Storage/storageAccounts/{0}', parameters('name'))]",
+              "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', parameters('name')), parameters('functionAppPrincipalId'), subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]",
+                "principalId": "[parameters('functionAppPrincipalId')]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', parameters('name'))]"
+              ]
+            },
+            {
+              "condition": "[not(equals(parameters('functionAppPrincipalId'), ''))]",
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[format('Microsoft.Storage/storageAccounts/{0}', parameters('name'))]",
+              "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', parameters('name')), parameters('functionAppPrincipalId'), subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '17d1049b-9a84-46fb-8f53-869881c3d3ab'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '17d1049b-9a84-46fb-8f53-869881c3d3ab')]",
+                "principalId": "[parameters('functionAppPrincipalId')]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', parameters('name'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "name": {
+              "type": "string",
+              "value": "[parameters('name')]"
+            },
+            "id": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Storage/storageAccounts', parameters('name'))]"
+            },
+            "primaryEndpoints": {
+              "type": "object",
+              "value": "[reference(resourceId('Microsoft.Storage/storageAccounts', parameters('name')), '2023-01-01').primaryEndpoints]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "hostingPlan",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "name": {
+            "value": "[variables('hostingPlanName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "environment": {
+            "value": "[parameters('environment')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.36.1.42791",
+              "templateHash": "15213735990861607426"
+            }
+          },
+          "parameters": {
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "The name of the hosting plan"
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "The location for the hosting plan"
+              }
+            },
+            "environment": {
+              "type": "string",
+              "metadata": {
+                "description": "The environment name"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Web/serverfarms",
+              "apiVersion": "2023-01-01",
+              "name": "[parameters('name')]",
+              "location": "[parameters('location')]",
+              "sku": {
+                "name": "Y1",
+                "tier": "Dynamic",
+                "size": "Y1",
+                "family": "Y",
+                "capacity": 0
+              },
+              "properties": {
+                "reserved": false
+              },
+              "tags": {
+                "Environment": "[parameters('environment')]",
+                "Project": "PodcastHostingService"
+              }
+            }
+          ],
+          "outputs": {
+            "name": {
+              "type": "string",
+              "value": "[parameters('name')]"
+            },
+            "id": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Web/serverfarms', parameters('name'))]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "functionApp",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "name": {
+            "value": "[variables('functionAppName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "environment": {
+            "value": "[parameters('environment')]"
+          },
+          "storageAccountName": {
+            "value": "[variables('storageAccountName')]"
+          },
+          "appInsightsInstrumentationKey": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'appInsights'), '2022-09-01').outputs.instrumentationKey.value]"
+          },
+          "hostingPlanId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'hostingPlan'), '2022-09-01').outputs.id.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.36.1.42791",
+              "templateHash": "6795735107448253180"
+            }
+          },
+          "parameters": {
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "The name of the function app"
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "The location for the function app"
+              }
+            },
+            "environment": {
+              "type": "string",
+              "metadata": {
+                "description": "The environment name"
+              }
+            },
+            "storageAccountName": {
+              "type": "string",
+              "metadata": {
+                "description": "The storage account name"
+              }
+            },
+            "appInsightsInstrumentationKey": {
+              "type": "string",
+              "metadata": {
+                "description": "The Application Insights instrumentation key"
+              }
+            },
+            "hostingPlanId": {
+              "type": "string",
+              "metadata": {
+                "description": "The hosting plan ID"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Web/sites",
+              "apiVersion": "2023-01-01",
+              "name": "[parameters('name')]",
+              "location": "[parameters('location')]",
+              "kind": "functionapp",
+              "identity": {
+                "type": "SystemAssigned"
+              },
+              "properties": {
+                "serverFarmId": "[parameters('hostingPlanId')]",
+                "siteConfig": {
+                  "appSettings": [
+                    {
+                      "name": "AzureWebJobsStorage__accountName",
+                      "value": "[parameters('storageAccountName')]"
+                    },
+                    {
+                      "name": "AzureWebJobsStorage__credential",
+                      "value": "managedidentity"
+                    },
+                    {
+                      "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING__accountName",
+                      "value": "[parameters('storageAccountName')]"
+                    },
+                    {
+                      "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING__credential",
+                      "value": "managedidentity"
+                    },
+                    {
+                      "name": "WEBSITE_CONTENTSHARE",
+                      "value": "[toLower(parameters('name'))]"
+                    },
+                    {
+                      "name": "FUNCTIONS_EXTENSION_VERSION",
+                      "value": "~4"
+                    },
+                    {
+                      "name": "FUNCTIONS_WORKER_RUNTIME",
+                      "value": "dotnet"
+                    },
+                    {
+                      "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
+                      "value": "[parameters('appInsightsInstrumentationKey')]"
+                    },
+                    {
+                      "name": "BlobStorageAccountName",
+                      "value": "[parameters('storageAccountName')]"
+                    },
+                    {
+                      "name": "WEBSITE_RUN_FROM_PACKAGE",
+                      "value": "1"
+                    }
+                  ],
+                  "cors": {
+                    "allowedOrigins": [
+                      "*"
+                    ],
+                    "supportCredentials": false
+                  },
+                  "use32BitWorkerProcess": false,
+                  "netFrameworkVersion": "v6.0"
+                },
+                "httpsOnly": true,
+                "clientAffinityEnabled": false
+              },
+              "tags": {
+                "Environment": "[parameters('environment')]",
+                "Project": "PodcastHostingService"
+              }
+            }
+          ],
+          "outputs": {
+            "name": {
+              "type": "string",
+              "value": "[parameters('name')]"
+            },
+            "id": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Web/sites', parameters('name'))]"
+            },
+            "functionAppUrl": {
+              "type": "string",
+              "value": "[format('https://{0}/api', reference(resourceId('Microsoft.Web/sites', parameters('name')), '2023-01-01').defaultHostName)]"
+            },
+            "defaultHostName": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Web/sites', parameters('name')), '2023-01-01').defaultHostName]"
+            },
+            "principalId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Web/sites', parameters('name')), '2023-01-01', 'full').identity.principalId]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'appInsights')]",
+        "[resourceId('Microsoft.Resources/deployments', 'hostingPlan')]",
+        "[resourceId('Microsoft.Resources/deployments', 'storage')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "staticWebApp",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "name": {
+            "value": "[variables('staticWebAppName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "environment": {
+            "value": "[parameters('environment')]"
+          },
+          "functionAppUrl": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'functionApp'), '2022-09-01').outputs.functionAppUrl.value]"
+          },
+          "tenantId": {
+            "value": "[parameters('tenantId')]"
+          },
+          "clientId": {
+            "value": "[parameters('clientId')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.36.1.42791",
+              "templateHash": "10706267112945971634"
+            }
+          },
+          "parameters": {
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "The name of the static web app"
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "The location for the static web app"
+              }
+            },
+            "environment": {
+              "type": "string",
+              "metadata": {
+                "description": "The environment name"
+              }
+            },
+            "functionAppUrl": {
+              "type": "string",
+              "metadata": {
+                "description": "The function app URL"
+              }
+            },
+            "tenantId": {
+              "type": "string",
+              "metadata": {
+                "description": "The AAD tenant ID"
+              }
+            },
+            "clientId": {
+              "type": "string",
+              "metadata": {
+                "description": "The AAD client ID"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Web/staticSites",
+              "apiVersion": "2023-01-01",
+              "name": "[parameters('name')]",
+              "location": "[parameters('location')]",
+              "sku": {
+                "name": "Free",
+                "tier": "Free"
+              },
+              "properties": {
+                "repositoryUrl": "",
+                "branch": "",
+                "buildProperties": {
+                  "appLocation": "frontend",
+                  "outputLocation": "dist"
+                },
+                "stagingEnvironmentPolicy": "Enabled",
+                "allowConfigFileUpdates": true,
+                "provider": "None"
+              },
+              "tags": {
+                "Environment": "[parameters('environment')]",
+                "Project": "PodcastHostingService"
+              }
+            },
+            {
+              "type": "Microsoft.Web/staticSites/config",
+              "apiVersion": "2023-01-01",
+              "name": "[format('{0}/{1}', parameters('name'), 'appsettings')]",
+              "properties": {
+                "VUE_APP_API_URL": "[parameters('functionAppUrl')]",
+                "VUE_APP_AUTH_CLIENT_ID": "[parameters('clientId')]",
+                "VUE_APP_AUTH_AUTHORITY": "[format('{0}{1}/', environment().authentication.loginEndpoint, parameters('tenantId'))]",
+                "VUE_APP_ENVIRONMENT": "[parameters('environment')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Web/staticSites', parameters('name'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "name": {
+              "type": "string",
+              "value": "[parameters('name')]"
+            },
+            "id": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Web/staticSites', parameters('name'))]"
+            },
+            "url": {
+              "type": "string",
+              "value": "[format('https://{0}', reference(resourceId('Microsoft.Web/staticSites', parameters('name')), '2023-01-01').defaultHostname)]"
+            },
+            "defaultHostname": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Web/staticSites', parameters('name')), '2023-01-01').defaultHostname]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'functionApp')]"
+      ]
+    }
+  ],
+  "outputs": {
+    "storageAccountName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'storage'), '2022-09-01').outputs.name.value]"
+    },
+    "functionAppName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'functionApp'), '2022-09-01').outputs.name.value]"
+    },
+    "staticWebAppName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'staticWebApp'), '2022-09-01').outputs.name.value]"
+    },
+    "functionAppUrl": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'functionApp'), '2022-09-01').outputs.functionAppUrl.value]"
+    },
+    "staticWebAppUrl": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'staticWebApp'), '2022-09-01').outputs.url.value]"
+    }
+  }
+}
