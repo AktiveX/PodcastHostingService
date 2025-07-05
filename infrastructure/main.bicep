@@ -32,6 +32,17 @@ module appInsights 'modules/app-insights.bicep' = {
   }
 }
 
+// Deploy Storage Account (without role assignments first)
+module storage 'modules/storage.bicep' = {
+  name: 'storage'
+  params: {
+    name: storageAccountName
+    location: location
+    environment: environment
+    functionAppPrincipalId: ''
+  }
+}
+
 // Deploy Hosting Plan
 module hostingPlan 'modules/hosting-plan.bicep' = {
   name: 'hostingPlan'
@@ -53,17 +64,9 @@ module functionApp 'modules/function-app.bicep' = {
     appInsightsInstrumentationKey: appInsights.outputs.instrumentationKey
     hostingPlanId: hostingPlan.outputs.id
   }
-}
-
-// Deploy Storage Account (after Function App to get principal ID)
-module storage 'modules/storage.bicep' = {
-  name: 'storage'
-  params: {
-    name: storageAccountName
-    location: location
-    environment: environment
-    functionAppPrincipalId: functionApp.outputs.principalId
-  }
+  dependsOn: [
+    storage
+  ]
 }
 
 // Deploy Static Web App

@@ -47,7 +47,7 @@ resource staticWebAppConfig 'Microsoft.Web/staticSites/config@2023-01-01' = {
   properties: {
     VUE_APP_API_URL: functionAppUrl
     VUE_APP_AUTH_CLIENT_ID: clientId
-    VUE_APP_AUTH_AUTHORITY: 'https://login.microsoftonline.com/${tenantId}'
+    VUE_APP_AUTH_AUTHORITY: '${az.environment().authentication.loginEndpoint}${tenantId}/'
     VUE_APP_ENVIRONMENT: environment
   }
 }

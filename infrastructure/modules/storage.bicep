@@ -83,7 +83,7 @@ resource storageAccountContributorRoleDefinition 'Microsoft.Authorization/roleDe
   name: '17d1049b-9a84-46fb-8f53-869881c3d3ab' // Storage Account Contributor
 }
 
-resource functionAppBlobDataAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+resource functionAppBlobDataAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (functionAppPrincipalId != '') {
   scope: storageAccount
   name: guid(storageAccount.id, functionAppPrincipalId, storageBlobDataContributorRoleDefinition.id)
   properties: {
@@ -93,7 +93,7 @@ resource functionAppBlobDataAccess 'Microsoft.Authorization/roleAssignments@2022
   }
 }
 
-resource functionAppStorageAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+resource functionAppStorageAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (functionAppPrincipalId != '') {
   scope: storageAccount
   name: guid(storageAccount.id, functionAppPrincipalId, storageAccountContributorRoleDefinition.id)
   properties: {
